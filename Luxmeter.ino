@@ -21,7 +21,7 @@ float RESISTANCE = 0.0;
 float LUX = 0.0;
 float MAX = 0.0;
 float MIN = 0.0;
-long nextPrint;
+long nextPrint = 0;
 
 int DIV = 1;
 const float DIVISORS[5] = {2.0, 4.0, 8.0, 16.0, 32.0};
@@ -99,28 +99,11 @@ void SelectDivisor()
   lcd.setCursor(2,0);
   lcd.print("2 4 8 16 32");
 
+  /*
   switch (Buttons())
   {
-    case LEFT:
-    {
-      int currentArrowPos = ArrowPosition(DIV);
-      PreviousDivisor();
-      while (Buttons() == LEFT) {}
-      lcd.setCursor(currentArrowPos, 1);
-      lcd.print(" ");
-      break;
-    }
 
-    case RIGHT:
-    {
-      int currentArrowPos = ArrowPosition(DIV);
-      NextDivisor();
-      while (Buttons() == RIGHT) {}
-      lcd.setCursor(currentArrowPos, 1);
-      lcd.print(" ");
-      break;
-    }
-  }
+  }*/
   
   lcd.createChar(1, ArrowChar);
   lcd.setCursor(ArrowPosition(DIV), 1);
@@ -167,36 +150,79 @@ int ArrowPosition(int index)
 void setup() {
   // put your setup code here, to run once:
   pinMode(SENSOR, INPUT);
-  pinMode(A0, INPUT);
   lcd.begin(16, 2);
 }
 
-void loop() {
-  // put your main code here, to run repeatedly:
-  nextPrint = millis() + 100;
-
-  // Taster abfragen
-  
+void switchModePoll()
+{
+  long bounceCheck = millis() + 10;
   switch (Buttons())
   {
     case UP:
     {
-      PreviousMode();
       while (Buttons() == UP) {}
-      lcd.clear();
+
+      if (bounceCheck <= millis())
+      {
+        PreviousMode();
+        lcd.clear();
+      }
+
       break;
     }
 
     case DOWN:
     {
-      NextMode();
       while (Buttons() == DOWN) {}
-      lcd.clear();
+
+      if (bounceCheck <= millis())
+      {
+        NextMode();
+        lcd.clear();
+      }
       break;
     }
+
+    case LEFT:
+    {
+      if (Mode == 2)
+      {
+        int currentArrowPos = ArrowPosition(DIV);
+        while (Buttons() == LEFT) {}
+
+        if (bounceCheck <= millis())
+        {
+          PreviousDivisor();
+          lcd.setCursor(currentArrowPos, 1);
+          lcd.print(" ");
+        }
+
+        break;
+      }
+    }
+
+    case RIGHT:
+    {
+      if (Mode == 2)
+      {
+        int currentArrowPos = ArrowPosition(DIV);
+        while (Buttons() == RIGHT) {}
+        
+        if (bounceCheck <= millis())
+        {
+          NextDivisor();
+          lcd.setCursor(currentArrowPos, 1);
+          lcd.print(" ");
+        }
+
+        break;
+      }
+    }
   }
+}
 
-
+void PrintMenus()
+{
   switch (Mode)
   {
     case 0:
@@ -217,17 +243,28 @@ void loop() {
       break;
     }
   }
-  
-  // Werte auslesen
+}
+
+void MeasureLoop()
+{
   while (millis() < nextPrint)
   {
     Measure();
+    switchModePoll();
   }
+
+  nextPrint = millis() + 100;
 }
 
-int Filter(int value)
-{
-  return UOUT + (UIN - UOUT) / DIV;
+void loop() {
+  // Taster abfragen
+  switchModePoll();
+
+  // Anzeigen der Menüs
+  PrintMenus();
+  
+  // Werte auslesen
+  MeasureLoop();
 }
 
 float Resistance(float voltage)
@@ -243,8 +280,10 @@ float Voltage(int value)
 float f(float x)
 {
   return 2.0 * pow((x-70.0)/33993.95062, 1.0/-0.6535);
+  // return 37923762.14794114 * pow(x, -1.6128069628077);
 }
 
+// return 2.0 * pow((x-70.0)/33993.95062, 1.0/-0.6535);
 void NextMode()
 {
   if (Mode == 2)
